@@ -246,8 +246,10 @@ If that is not set, then the system default will be used.
 	
 	open var strikethrough = BasicStyles()
 	
-	public var bullet : String = "・"
-	
+	public var bullets: [String] = ["•", "◦", "・"]
+    public var listIndent: Double = 30
+    public var indentItem: String = "\t"
+
 	public var underlineLinks : Bool = false
 	
 	public var frontMatterAttributes : [String : String] {
@@ -453,30 +455,42 @@ extension SwiftyMarkdown {
 			preconditionFailure("The passed line style is not a valid Markdown Line Style")
 		}
 		
-		var listItem = self.bullet
+		var listItem = ""
+        let bullets = self.bullets.count == 3 ? self.bullets : ["•", "•", "•"]
+
 		switch markdownLineStyle {
 		case .orderedList:
 			self.orderedListCount += 1
 			self.orderedListIndentFirstOrderCount = 0
 			self.orderedListIndentSecondOrderCount = 0
 			listItem = "\(self.orderedListCount)."
+        case .unorderedList:
+            self.orderedListCount = 0
+            self.orderedListIndentFirstOrderCount = 0
+            self.orderedListIndentSecondOrderCount = 0
+            listItem = bullets[0]
 		case .orderedListIndentFirstOrder, .unorderedListIndentFirstOrder:
 			self.orderedListIndentFirstOrderCount += 1
 			self.orderedListIndentSecondOrderCount = 0
 			if markdownLineStyle == .orderedListIndentFirstOrder {
 				listItem = "\(self.orderedListIndentFirstOrderCount)."
-			}
-			
+            } else if markdownLineStyle == .unorderedListIndentFirstOrder {
+                listItem = bullets[1]
+            }
+
 		case .orderedListIndentSecondOrder, .unorderedListIndentSecondOrder:
 			self.orderedListIndentSecondOrderCount += 1
 			if markdownLineStyle == .orderedListIndentSecondOrder {
 				listItem = "\(self.orderedListIndentSecondOrderCount)."
-			}
-			
+			} else if markdownLineStyle == .unorderedListIndentSecondOrder {
+                listItem = bullets[2]
+            }
+
 		default:
 			self.orderedListCount = 0
 			self.orderedListIndentFirstOrderCount = 0
 			self.orderedListIndentSecondOrderCount = 0
+            listItem = bullets[0]
 		}
 
 		let lineProperties : LineProperties
@@ -506,16 +520,16 @@ extension SwiftyMarkdown {
 			attributes[.paragraphStyle] = paragraphStyle
 		case .unorderedList, .unorderedListIndentFirstOrder, .unorderedListIndentSecondOrder, .orderedList, .orderedListIndentFirstOrder, .orderedListIndentSecondOrder:
 			
-			let interval : CGFloat = 30
+            let interval: CGFloat = listIndent
 			var addition = interval
 			var indent = ""
 			switch line.lineStyle as! MarkdownLineStyle {
 			case .unorderedListIndentFirstOrder, .orderedListIndentFirstOrder:
 				addition = interval * 2
-				indent = "\t"
+                indent = indentItem
 			case .unorderedListIndentSecondOrder, .orderedListIndentSecondOrder:
 				addition = interval * 3
-				indent = "\t\t"
+                indent = indentItem + indentItem
 			default:
 				break
 			}
@@ -528,8 +542,13 @@ extension SwiftyMarkdown {
 			paragraphStyle.headIndent = addition
 
 			attributes[.paragraphStyle] = paragraphStyle
-			finalTokens.insert(Token(type: .string, inputString: "\(indent)\(listItem)\t"), at: 0)
-			
+
+            if [.unorderedList, .unorderedListIndentFirstOrder, .unorderedListIndentSecondOrder].contains(markdownLineStyle) {
+                finalTokens.insert(Token(type: .string, inputString: "\(indent)\(listItem) "), at: 0)
+            } else {
+                finalTokens.insert(Token(type: .string, inputString: "\(indent)\(listItem)\t"), at: 0)
+            }
+
 		case .yaml:
 			lineProperties = body
 		case .previousH1:
